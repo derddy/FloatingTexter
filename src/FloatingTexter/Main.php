@@ -2,9 +2,10 @@
 
 namespace FloatingTexter;
 
+use pocketmine\event\entity\EntityLevelChangeEvent;
 use pocketmine\event\Listener;
+use pocketmine\Player;
 use pocketmine\plugin\PluginBase;
-use pocketmine\utils\TextFormat;
 use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\level\particle\FloatingTextParticle;
 use pocketmine\math\Vector3;
@@ -12,42 +13,46 @@ use pocketmine\math\Vector3;
 class Main extends PluginBase implements Listener{
 
 	public function onEnable(){
-
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
-		$this->getLogger()->info(TextFormat::GREEN. "Plugin Enabled");
-
-		if(!is_dir($this->getDataFolder())){
-			@mkdir($this->getDataFolder());
-		}
-
+		$this->getLogger()->info("Enabled!");
+		if(!is_dir($this->getDataFolder())) mkdir($this->getDataFolder());
 		if(!file_exists($this->getDataFolder() . "config.yml")){
-			$this->saveDefaultConfig();
+			$this->getConfig()->setDefaults(array(
+				"test" => [
+					"x" => 0,
+					"y" => 128,
+					"z" => 0,
+					"level" => "world",
+					"text" => "Welcome to the server! :)"
+				]
+			));
+			$this->getConfig()->save();
+			$this->updateTexts();
 		}
-
-		$this->cfg = $this->getConfig();
 	}
-	
+
 	public function onDisable(){
-
-		$this->getLogger()->info(TextFormat::RED. "Plugin Disabled");
-
+		$this->getLogger()->info("Disabled");
 	}
- 
-	public function onPlayerJoin(PlayerJoinEvent $event){
 
-		foreach($this->cfg->get("floats") as $floats){
-
-			$level = $event->getPlayer()->getLevel();
-			$vect = new Vector3($floats["x"], $floats["y"], $floats["z"]);
-			$finaltext = "";
-
-			foreach($floats["text"] as $text){
-				$finaltext .= $text . "\n";
-			}
-			
-			if($level->getName() == $floats["level"]){
-				$level->addParticle(new FloatingTextParticle($vect->add(0.5, 0.0, -0.5), "", $finaltext));
+	public function updateTexts(){
+		foreach($this->getConfig()->getAll() as $name => $values){
+			foreach($this->getServer()->getLevels() as $level){
+				if($level->getName() == $values["level"]){
+					$level->addParticle(new FloatingTextParticle(new Vector3($values["x"], $values["y"], $values["z"]), "", $values["text"]));
+				}
 			}
 		}
 	}
+
+	public function join(PlayerJoinEvent $ev){
+		$this->updateTexts();
+	}
+
+	public function levelChange(EntityLevelChangeEvent $ev){
+		if($ev->getEntity() instanceof Player){
+			$this->updateTexts();
+		}
+	}
+
 }
